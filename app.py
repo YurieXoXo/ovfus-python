@@ -288,8 +288,6 @@ def dashboard():
 def obfuscate():
     source = request.form.get("source_code", "")
     filename = request.form.get("filename", "").strip() or "script.lua"
-    double_wrap = request.form.get("double_wrap") == "on"
-    selected_layers = request.form.getlist("layers")
     file_part = request.files.get("script_file")
 
     if file_part and file_part.filename:
@@ -313,22 +311,11 @@ def obfuscate():
         return redirect(url_for("dashboard"))
 
     try:
-        parsed_layers = []
-        for value in selected_layers:
-            try:
-                layer_num = int(value)
-            except ValueError:
-                continue
-            if layer_num in {1, 2, 3, 4, 5}:
-                parsed_layers.append(layer_num)
-        if not parsed_layers:
-            parsed_layers = [1, 2, 3, 4, 5]
-
         obfuscated = obfuscate_lua_source(
             source,
-            layers=parsed_layers,
+            layers=[1, 2, 3, 4, 5],
             density=9,
-            double_wrap=double_wrap,
+            double_wrap=True,
         )
     except ObfuscationError as exc:
         flash(f"Obfuscation failed: {exc}", "error")
