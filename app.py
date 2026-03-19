@@ -29,7 +29,7 @@ from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
-from obfuscator import ObfuscationError, obfuscate_python_source
+from obfuscator import ObfuscationError, obfuscate_lua_source
 
 load_dotenv()
 
@@ -45,7 +45,7 @@ def _normalize_database_url(raw_url: str) -> str:
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "change-me-in-production")
 app.config["SQLALCHEMY_DATABASE_URI"] = _normalize_database_url(
-    os.getenv("DATABASE_URL", "sqlite:///pythonobfus.db")
+    os.getenv("DATABASE_URL", "sqlite:///obscura.db")
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["MAX_SOURCE_SIZE_BYTES"] = int(os.getenv("MAX_SOURCE_SIZE_BYTES", "200000"))
@@ -298,7 +298,10 @@ def dashboard():
 @login_required
 def obfuscate():
     source = request.form.get("source_code", "")
-    filename = request.form.get("filename", "").strip() or "script.py"
+    filename = request.form.get("filename", "").strip() or "script.lua"
+    density = request.form.get("density", "3").strip() or "3"
+    double_wrap = request.form.get("double_wrap") == "on"
+    selected_layers = request.form.getlist("layers")
     file_part = request.files.get("script_file")
 
     if file_part and file_part.filename:
@@ -312,7 +315,7 @@ def obfuscate():
 
     source = source.strip()
     if not source:
-        flash("Provide a Python script first.", "error")
+        flash("Provide a Lua script first.", "error")
         return redirect(url_for("dashboard"))
 
     source_size = len(source.encode("utf-8"))
@@ -322,7 +325,28 @@ def obfuscate():
         return redirect(url_for("dashboard"))
 
     try:
-        obfuscated = obfuscate_python_source(source)
+        parsed_layers = []
+        for value in selected_layers:
+            try:
+                layer_num = int(value)
+            except ValueError:
+                continue
+            if layer_num in {1, 2, 3, 4, 5}:
+                parsed_layers.append(layer_num)
+        if not parsed_layers:
+            parsed_layers = [1, 2, 3, 4, 5]
+
+        try:
+            density_value = int(density)
+        except ValueError:
+            density_value = 3
+
+        obfuscated = obfuscate_lua_source(
+            source,
+            layers=parsed_layers,
+            density=density_value,
+            double_wrap=double_wrap,
+        )
     except ObfuscationError as exc:
         flash(f"Obfuscation failed: {exc}", "error")
         return redirect(url_for("dashboard"))
@@ -363,14 +387,14 @@ def obfuscate():
         flash("Obfuscation could not be completed right now.", "error")
         return redirect(url_for("dashboard"))
 
-    output_name = secure_filename(filename) or "script.py"
-    if not output_name.endswith(".py"):
-        output_name = f"{output_name}.py"
-    output_name = f"{output_name[:-3]}_obf.py"
+    output_name = secure_filename(filename) or "script.lua"
+    if not output_name.endswith(".lua"):
+        output_name = f"{output_name}.lua"
+    output_name = f"{output_name[:-4]}_obf.lua"
 
     return send_file(
         io.BytesIO(obfuscated.encode("utf-8")),
-        mimetype="text/x-python",
+        mimetype="text/plain",
         as_attachment=True,
         download_name=output_name,
     )

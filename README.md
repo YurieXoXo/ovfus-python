@@ -1,70 +1,45 @@
-# PythonObfus Web App
+# Obscura Web App
 
-Token-based Python obfuscation service:
+Token-based Matcha LuaVM obfuscation service:
 - User signup/login
-- Credit purchase flow (instant mode now, Stripe optional later)
-- `1 credit` consumed per obfuscation
-- Download obfuscated `.py` file
+- Credit purchase flow (`1 credit` per obfuscation)
+- Instant buy mode without Stripe (for now)
+- Upload/paste Lua source and download `_obf.lua`
 
 ## Local run
 
-1. Create virtualenv and install deps:
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-```
-2. Copy env file:
-```powershell
 Copy-Item .env.example .env
-```
-3. Start server:
-```powershell
 python app.py
 ```
-4. Open: `http://127.0.0.1:5000`
 
-## No-Stripe mode (current)
+Open: `http://127.0.0.1:5000`
 
-If Stripe keys are missing, clicking Buy uses instant mode and immediately adds credits.
-This is controlled by:
+## Purchase mode
+
+Default is instant mode (no Stripe):
 - `AUTO_APPROVE_PURCHASES=1`
 
-Set it to `0` when you want to enforce real Stripe checkout only.
+When you want real checkout later:
+1. Set `AUTO_APPROVE_PURCHASES=0`
+2. Configure Stripe keys/price IDs
+3. Add Stripe webhook for `checkout.session.completed`
 
-## Stripe setup (later)
+## Render deploy
 
-1. Create products/prices in Stripe Dashboard:
-- Starter: 10 credits
-- Pro: 50 credits
-- Max: 150 credits
-2. Put each Stripe `price_...` id in:
-- `STRIPE_PRICE_ID_STARTER`
-- `STRIPE_PRICE_ID_PRO`
-- `STRIPE_PRICE_ID_MAX`
-3. Add `STRIPE_SECRET_KEY`.
-4. Set webhook endpoint to:
-- `https://<your-render-domain>/stripe/webhook`
-5. Subscribe webhook to event:
-- `checkout.session.completed`
-6. Put webhook signing secret in `STRIPE_WEBHOOK_SECRET`.
+This repo includes `render.yaml` for Blueprint deploy.
 
-## Render deployment
-
-This repo includes `render.yaml`, so you can deploy as a Blueprint.
-
-1. Push this folder to GitHub.
-2. In Render: `New` -> `Blueprint` -> select repo.
+1. Push repo to GitHub.
+2. In Render: `New` -> `Blueprint` -> choose repo.
 3. Render creates:
-- Web service (`pythonobfus`)
-- PostgreSQL database (`pythonobfus-db`)
-4. Fill environment variables in Render service:
-- `BASE_URL` = your Render app URL, for example `https://pythonobfus.onrender.com`
-- Stripe keys and price IDs.
+   - Web service: `obscura`
+   - PostgreSQL database: `obscura-db`
+4. Env vars for no-Stripe launch:
+   - `BASE_URL` = temporary placeholder (`https://example.com`) on first deploy
+   - Leave Stripe vars empty
+   - `AUTO_APPROVE_PURCHASES=1`
 5. Deploy.
-
-## Notes
-
-- Obfuscation raises reverse-engineering effort, but it is not perfect protection.
-- If Stripe is not set and `AUTO_APPROVE_PURCHASES=1`, buying credits is instant (no payment).
-- For local testing only, set `ENABLE_DEV_TOPUP=1` and use test-credit buttons on `/buy`.
+6. After deploy, set `BASE_URL` to your real Render URL and redeploy.

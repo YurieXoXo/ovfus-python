@@ -3,29 +3,32 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PythonObfus</title>
+  <title>Obscura</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <header class="site-header">
     <div class="container nav">
-      <a class="brand" href="{{ url_for('index') }}">PythonObfus</a>
+      <a class="brand" href="{{ url_for('index') }}">
+        <span class="brand-mark"></span>
+        <span>Obscura</span>
+      </a>
       <nav>
         {% if current_user.is_authenticated %}
           <a href="{{ url_for('dashboard') }}">Dashboard</a>
           <a href="{{ url_for('buy_credits') }}">Buy Credits</a>
           <form class="inline" action="{{ url_for('logout') }}" method="post">
-            <button type="submit">Logout</button>
+            <button class="btn-nav" type="submit">Logout</button>
           </form>
         {% else %}
           <a href="{{ url_for('login') }}">Login</a>
-          <a href="{{ url_for('register') }}">Sign Up</a>
+          <a class="pill-link" href="{{ url_for('register') }}">Sign Up</a>
         {% endif %}
       </nav>
     </div>
   </header>
 
-  <main class="container">
+  <main class="container page">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="flash-wrap">
@@ -38,5 +41,6 @@
 
     {% block content %}{% endblock %}
   </main>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

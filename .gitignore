@@ -6,3 +6,4 @@ venv/
 instance/
 *.sqlite3
 pythonobfus.db
+obscura.db
