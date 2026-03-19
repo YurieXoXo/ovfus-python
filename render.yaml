@@ -16,11 +16,13 @@ services:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
-      - key: STRIPE_PRICE_ID_STARTER
-        sync: false
-      - key: STRIPE_PRICE_ID_PRO
-        sync: false
-      - key: STRIPE_PRICE_ID_MAX
+      - key: CREDIT_PRICE_CENTS
+        value: "50"
+      - key: MAX_BUY_CREDITS
+        value: "1000"
+      - key: AUTO_APPROVE_PURCHASES
+        value: "1"
+      - key: ENABLE_DEV_TOPUP
         sync: false
       - key: DATABASE_URL
         fromDatabase:

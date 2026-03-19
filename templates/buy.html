@@ -2,36 +2,113 @@
 {% block content %}
 <section class="dashboard-head">
   <h1>Credit Vault</h1>
-  <p>1 credit = 1 Obscura obfuscation request.</p>
+  <p>Pick an amount and buy exactly what you need.</p>
 </section>
 
 {% if auto_approve_purchases %}
 <section class="card">
   <p class="muted">
-    Instant mode is active: packs are credited immediately (Stripe disabled for now).
+    Instant mode is active right now: checkout will credit your account immediately.
   </p>
 </section>
 {% endif %}
 
-<section class="grid cards-3">
-  {% for package in packages %}
-  <article class="card package">
-    <h2>{{ package.label }}</h2>
-    <p class="price">{{ package.price }}</p>
-    <p>{{ package.credits }} credits</p>
+<section class="card buy-card">
+  <form method="post" action="{{ url_for('create_checkout') }}" id="buyForm">
+    <label for="creditsInput">Credits to buy</label>
+    <div class="buy-row">
+      <input
+        type="number"
+        id="creditsInput"
+        name="credits"
+        min="1"
+        max="{{ max_buy_credits }}"
+        value="10"
+        required
+      >
+      <div class="slot-price">
+        <span class="slot-label">Total</span>
+        <span class="slot-amount" id="slotAmount">$0.00</span>
+      </div>
+    </div>
 
-    <form method="post" action="{{ url_for('create_checkout', package_key=package.key) }}">
-      <button type="submit">
-        {% if package.uses_stripe %}Checkout{% else %}Instant Buy{% endif %}
-      </button>
+    <p class="muted">Price per credit: {{ unit_price }}</p>
+
+    <button type="submit">
+      {% if uses_stripe %}Go To Checkout{% else %}Instant Buy{% endif %}
+    </button>
+  </form>
+
+  {% if dev_topup_enabled %}
+    <form method="post" action="{{ url_for('dev_topup') }}" class="topup-form">
+      <input type="hidden" name="credits" id="topupCredits" value="10">
+      <button class="btn-ghost" type="submit">Add Test Credits (Dev)</button>
     </form>
-
-    {% if dev_topup_enabled %}
-      <form method="post" action="{{ url_for('dev_topup', package_key=package.key) }}">
-        <button class="btn-ghost" type="submit">Add Test Credits</button>
-      </form>
-    {% endif %}
-  </article>
-  {% endfor %}
+  {% endif %}
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const creditsInput = document.getElementById("creditsInput");
+  const slotAmount = document.getElementById("slotAmount");
+  const topupCredits = document.getElementById("topupCredits");
+  const unitPriceCents = {{ unit_price_cents }};
+  const maxCredits = {{ max_buy_credits }};
+  let displayedCents = 0;
+  let animationSerial = 0;
+
+  const formatMoney = (cents) => {
+    return `$${(Math.max(0, cents) / 100).toFixed(2)}`;
+  };
+
+  const cleanCredits = (raw) => {
+    let amount = parseInt(raw || "1", 10);
+    if (!Number.isFinite(amount)) amount = 1;
+    if (amount < 1) amount = 1;
+    if (amount > maxCredits) amount = maxCredits;
+    return amount;
+  };
+
+  const animateSlot = (targetCents) => {
+    animationSerial += 1;
+    const serial = animationSerial;
+    const start = displayedCents;
+    const duration = 520;
+    const startTime = performance.now();
+
+    const frame = (now) => {
+      if (serial !== animationSerial) return;
+      const progress = Math.min((now - startTime) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      let nextValue = Math.round(start + (targetCents - start) * ease);
+
+      if (progress < 0.84) {
+        const wobble = Math.round((Math.random() - 0.5) * Math.max(90, targetCents * 0.12));
+        nextValue += wobble;
+      }
+
+      slotAmount.textContent = formatMoney(nextValue);
+      if (progress < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        displayedCents = targetCents;
+        slotAmount.textContent = formatMoney(targetCents);
+      }
+    };
+
+    requestAnimationFrame(frame);
+  };
+
+  const updatePrice = () => {
+    const credits = cleanCredits(creditsInput.value);
+    creditsInput.value = String(credits);
+    if (topupCredits) topupCredits.value = String(credits);
+    animateSlot(credits * unitPriceCents);
+  };
+
+  creditsInput.addEventListener("input", updatePrice);
+  creditsInput.addEventListener("change", updatePrice);
+  updatePrice();
+</script>
 {% endblock %}

@@ -52,6 +52,8 @@ app.config["MAX_SOURCE_SIZE_BYTES"] = int(os.getenv("MAX_SOURCE_SIZE_BYTES", "20
 app.config["ENABLE_DEV_TOPUP"] = os.getenv("ENABLE_DEV_TOPUP", "0") == "1"
 app.config["BASE_URL"] = os.getenv("BASE_URL", "http://127.0.0.1:5000").rstrip("/")
 app.config["AUTO_APPROVE_PURCHASES"] = os.getenv("AUTO_APPROVE_PURCHASES", "1") == "1"
+app.config["CREDIT_PRICE_CENTS"] = int(os.getenv("CREDIT_PRICE_CENTS", "50"))
+app.config["MAX_BUY_CREDITS"] = int(os.getenv("MAX_BUY_CREDITS", "1000"))
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
@@ -59,27 +61,6 @@ login_manager.login_view = "login"
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-
-CREDIT_PACKAGES = {
-    "starter": {
-        "label": "Starter",
-        "credits": 10,
-        "price_cents": 500,
-        "price_id": os.getenv("STRIPE_PRICE_ID_STARTER", ""),
-    },
-    "pro": {
-        "label": "Pro",
-        "credits": 50,
-        "price_cents": 2000,
-        "price_id": os.getenv("STRIPE_PRICE_ID_PRO", ""),
-    },
-    "max": {
-        "label": "Max",
-        "credits": 150,
-        "price_cents": 5000,
-        "price_id": os.getenv("STRIPE_PRICE_ID_MAX", ""),
-    },
-}
 
 
 class User(UserMixin, db.Model):
@@ -148,16 +129,24 @@ def get_locked_user(user_id: int) -> User | None:
     return query.first()
 
 
-def get_package(package_key: str):
-    return CREDIT_PACKAGES.get(package_key)
-
-
 def money(cents: int) -> str:
     return f"${cents / 100:.2f}"
 
 
-def package_checkout_enabled(package: dict) -> bool:
-    return bool(stripe.api_key and package.get("price_id"))
+def parse_credit_amount(raw_value: str | None) -> int | None:
+    if raw_value is None:
+        return None
+    try:
+        credits = int(raw_value)
+    except ValueError:
+        return None
+    if credits < 1 or credits > app.config["MAX_BUY_CREDITS"]:
+        return None
+    return credits
+
+
+def stripe_checkout_enabled() -> bool:
+    return bool(stripe.api_key)
 
 
 def grant_purchase_credits(
@@ -299,7 +288,6 @@ def dashboard():
 def obfuscate():
     source = request.form.get("source_code", "")
     filename = request.form.get("filename", "").strip() or "script.lua"
-    density = request.form.get("density", "3").strip() or "3"
     double_wrap = request.form.get("double_wrap") == "on"
     selected_layers = request.form.getlist("layers")
     file_part = request.files.get("script_file")
@@ -336,15 +324,10 @@ def obfuscate():
         if not parsed_layers:
             parsed_layers = [1, 2, 3, 4, 5]
 
-        try:
-            density_value = int(density)
-        except ValueError:
-            density_value = 3
-
         obfuscated = obfuscate_lua_source(
             source,
             layers=parsed_layers,
-            density=density_value,
+            density=9,
             double_wrap=double_wrap,
         )
     except ObfuscationError as exc:
@@ -403,45 +386,44 @@ def obfuscate():
 @app.route("/buy")
 @login_required
 def buy_credits():
-    packages = []
-    for key, pack in CREDIT_PACKAGES.items():
-        packages.append(
-            {
-                "key": key,
-                "label": pack["label"],
-                "credits": pack["credits"],
-                "price": money(pack["price_cents"]),
-                "uses_stripe": package_checkout_enabled(pack),
-            }
-        )
     return render_template(
         "buy.html",
-        packages=packages,
+        unit_price=money(app.config["CREDIT_PRICE_CENTS"]),
+        unit_price_cents=app.config["CREDIT_PRICE_CENTS"],
+        max_buy_credits=app.config["MAX_BUY_CREDITS"],
+        uses_stripe=stripe_checkout_enabled(),
         dev_topup_enabled=app.config["ENABLE_DEV_TOPUP"],
         auto_approve_purchases=app.config["AUTO_APPROVE_PURCHASES"],
     )
 
 
-@app.route("/checkout/<package_key>", methods=["POST"])
+@app.route("/checkout", methods=["POST"])
 @login_required
-def create_checkout(package_key: str):
-    package = get_package(package_key)
-    if package is None:
-        abort(404)
-    if not package_checkout_enabled(package):
+def create_checkout():
+    credits = parse_credit_amount(request.form.get("credits"))
+    if credits is None:
+        flash(
+            f"Enter a valid credit amount between 1 and {app.config['MAX_BUY_CREDITS']}.",
+            "error",
+        )
+        return redirect(url_for("buy_credits"))
+
+    amount_cents = credits * app.config["CREDIT_PRICE_CENTS"]
+
+    if not stripe_checkout_enabled():
         if not app.config["AUTO_APPROVE_PURCHASES"]:
             flash("Stripe is not configured yet.", "error")
             return redirect(url_for("buy_credits"))
 
         credited = grant_purchase_credits(
             user_id=current_user.id,
-            credits=package["credits"],
+            credits=credits,
             stripe_session_id=f"auto_{uuid4().hex}",
-            amount_cents=package["price_cents"],
+            amount_cents=amount_cents,
         )
         if credited:
             flash(
-                f"Added {package['credits']} credits instantly (Stripe disabled mode).",
+                f"Added {credits} credits instantly (Stripe disabled mode).",
                 "success",
             )
             return redirect(url_for("dashboard"))
@@ -452,11 +434,22 @@ def create_checkout(package_key: str):
         checkout = stripe.checkout.Session.create(
             mode="payment",
             payment_method_types=["card"],
-            line_items=[{"price": package["price_id"], "quantity": 1}],
+            line_items=[
+                {
+                    "price_data": {
+                        "currency": "usd",
+                        "unit_amount": app.config["CREDIT_PRICE_CENTS"],
+                        "product_data": {
+                            "name": "Obscura Credits",
+                            "description": f"{credits} credits",
+                        },
+                    },
+                    "quantity": credits,
+                }
+            ],
             metadata={
                 "user_id": str(current_user.id),
-                "credits": str(package["credits"]),
-                "package_key": package_key,
+                "credits": str(credits),
             },
             client_reference_id=str(current_user.id),
             success_url=(
@@ -543,25 +536,26 @@ def stripe_webhook():
     return "ok", 200
 
 
-@app.route("/dev/topup/<package_key>", methods=["POST"])
+@app.route("/dev/topup", methods=["POST"])
 @login_required
-def dev_topup(package_key: str):
+def dev_topup():
     if not app.config["ENABLE_DEV_TOPUP"]:
         abort(404)
 
-    package = get_package(package_key)
-    if package is None:
-        abort(404)
+    credits = parse_credit_amount(request.form.get("credits"))
+    if credits is None:
+        flash("Invalid credit amount.", "error")
+        return redirect(url_for("buy_credits"))
 
     try:
         user = get_locked_user(current_user.id)
         if user is None:
             abort(404)
-        user.credits += package["credits"]
+        user.credits += credits
         db.session.add(
             CreditTransaction(
                 user_id=user.id,
-                delta=package["credits"],
+                delta=credits,
                 reason="dev_topup",
                 amount_cents=0,
                 stripe_session_id=None,
@@ -572,7 +566,7 @@ def dev_topup(package_key: str):
         db.session.rollback()
         raise
 
-    flash(f"Added {package['credits']} test credits.", "success")
+    flash(f"Added {credits} test credits.", "success")
     return redirect(url_for("buy_credits"))
 
 

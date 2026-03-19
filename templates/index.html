@@ -2,78 +2,23 @@
 {% block content %}
 <section class="hero premium" data-reveal>
   <div class="hero-glow"></div>
-  <p class="eyebrow">LUA VM OBFUSCATION</p>
-  <h1>Obscura turns plain Lua into hardened VM-grade output.</h1>
+  <p class="eyebrow">OBSCURA</p>
+  <h1>Obfuscate Lua scripts with account access and credit control.</h1>
   <p class="lead">
-    Account-based obfuscation with credit control. Upload your script, run the full 5-layer Matcha
-    pipeline, and download in seconds.
+    Upload your source, tune your obfuscation settings, and download hardened output instantly.
   </p>
   <div class="cta-row">
-    <a class="btn" href="{{ url_for('register') }}">Launch Obscura</a>
-    <a class="btn btn-ghost" href="{{ url_for('login') }}">I Already Have Access</a>
-  </div>
-  <div class="hero-stats">
-    <article>
-      <h3>5</h3>
-      <p>obfuscation layers</p>
-    </article>
-    <article>
-      <h3>1</h3>
-      <p>credit per build</p>
-    </article>
-    <article>
-      <h3>24/7</h3>
-      <p>cloud access on Render</p>
-    </article>
+    <a class="btn" href="{{ url_for('register') }}">Create Account</a>
+    <a class="btn btn-ghost" href="{{ url_for('login') }}">Login</a>
   </div>
 </section>
 
-<section class="section" data-reveal>
-  <div class="section-head">
-    <p class="eyebrow">WHAT YOU GET</p>
-    <h2>Security-first pipeline tuned for Matcha LuaVM behavior</h2>
+<section class="section review-stage" data-reveal>
+  <div class="section-head compact">
+    <p class="eyebrow">REAL FEEDBACK</p>
+    <h2>Community comments floating live</h2>
   </div>
-  <div class="feature-grid">
-    <article class="card feature">
-      <h3>Layered Obfuscation</h3>
-      <p>Function renaming, XOR string tables, fake decryptors, env key-binding, and split payload cipher.</p>
-    </article>
-    <article class="card feature">
-      <h3>Credit Metering</h3>
-      <p>Each obfuscation consumes exactly one credit so abuse is controlled and usage is measurable.</p>
-    </article>
-    <article class="card feature">
-      <h3>Fast Delivery</h3>
-      <p>Upload or paste Lua source, then instantly download a generated `_obf.lua` file.</p>
-    </article>
-  </div>
-</section>
-
-<section class="section" data-reveal>
-  <div class="section-head">
-    <p class="eyebrow">USER REVIEWS</p>
-    <h2>Teams shipping private Lua logic use Obscura daily</h2>
-  </div>
-  <div class="reviews">
-    <article class="card review">
-      <p>"Moved our release flow to Obscura in one evening. Token usage is clear and output quality is solid."</p>
-      <h4>Hexa Studio</h4>
-    </article>
-    <article class="card review">
-      <p>"The layered build options plus double-wrap gave us enough depth without complicating deployment."</p>
-      <h4>Rift Scripts</h4>
-    </article>
-    <article class="card review">
-      <p>"Exactly what we needed: login, credits, and a strict one-token-per-build policy."</p>
-      <h4>Atlas Runtime</h4>
-    </article>
-  </div>
-</section>
-
-<section class="section cta-panel" data-reveal>
-  <h2>Ready to harden your Lua scripts?</h2>
-  <p>Create your Obscura account and start obfuscating immediately.</p>
-  <a class="btn" href="{{ url_for('register') }}">Create Account</a>
+  <div class="bubble-field" id="bubbleField"></div>
 </section>
 {% endblock %}
 
@@ -87,11 +32,46 @@
         observer.unobserve(entry.target);
       }
     });
-  }, { threshold: 0.15 });
-
+  }, { threshold: 0.14 });
   reveals.forEach((el, idx) => {
-    el.style.transitionDelay = `${idx * 80}ms`;
+    el.style.transitionDelay = `${idx * 90}ms`;
     observer.observe(el);
   });
+
+  const reviews = [
+    "Setup was quick and we shipped our first protected update the same night.",
+    "Credit system is clean. I can predict cost before every push.",
+    "Output size grew but execution stayed stable in my tests.",
+    "Login + token flow feels simple enough for my whole team.",
+    "Double wrap gave me stronger output without extra manual work.",
+    "This replaced the random local tools we were using before.",
+    "I like that I can toggle layers per script depending on risk.",
+    "Way easier to manage than sharing one desktop obfuscator around.",
+    "The generated Lua has been reliable for all my recent releases.",
+    "Exactly the kind of panel I wanted: upload, obfuscate, download."
+  ];
+
+  const bubbleField = document.getElementById("bubbleField");
+
+  const spawnBubble = () => {
+    const bubble = document.createElement("article");
+    bubble.className = "review-bubble";
+    bubble.textContent = reviews[Math.floor(Math.random() * reviews.length)];
+    bubble.style.left = `${Math.random() * 78}%`;
+    bubble.style.top = `${8 + Math.random() * 76}%`;
+    bubble.style.animationDuration = `${8 + Math.random() * 7}s`;
+    bubble.style.animationDelay = `${Math.random() * 1.2}s`;
+    bubble.style.maxWidth = `${220 + Math.floor(Math.random() * 80)}px`;
+    bubbleField.appendChild(bubble);
+
+    setTimeout(() => {
+      bubble.remove();
+    }, 9500);
+  };
+
+  for (let i = 0; i < 7; i += 1) {
+    setTimeout(spawnBubble, i * 300);
+  }
+  setInterval(spawnBubble, 900);
 </script>
 {% endblock %}
