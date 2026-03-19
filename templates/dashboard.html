@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="dashboard-head">
+  <h1>Dashboard</h1>
+  <p><strong>Credits:</strong> {{ current_user.credits }}</p>
+</section>
+
+<section class="card">
+  <h2>Obfuscate script (1 credit)</h2>
+  <form method="post" action="{{ url_for('obfuscate') }}" enctype="multipart/form-data">
+    <label>File name (optional)</label>
+    <input type="text" name="filename" placeholder="script.py">
+
+    <label>Upload a .py file (optional)</label>
+    <input type="file" name="script_file" accept=".py,text/x-python,text/plain">
+
+    <label>Or paste source code</label>
+    <textarea name="source_code" rows="14" placeholder="print('hello world')"></textarea>
+
+    <button type="submit">Obfuscate and Download</button>
+  </form>
+</section>
+
+<section class="grid">
+  <article class="card">
+    <h2>Recent credit activity</h2>
+    {% if transactions %}
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Reason</th>
+            <th>Delta</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for tx in transactions %}
+          <tr>
+            <td>{{ tx.created_at|dt }}</td>
+            <td>{{ tx.reason }}</td>
+            <td class="{{ 'plus' if tx.delta > 0 else 'minus' }}">
+              {{ '+' if tx.delta > 0 else '' }}{{ tx.delta }}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No transactions yet.</p>
+    {% endif %}
+  </article>
+
+  <article class="card">
+    <h2>Recent obfuscations</h2>
+    {% if jobs %}
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>File</th>
+            <th>In/Out</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for job in jobs %}
+          <tr>
+            <td>{{ job.created_at|dt }}</td>
+            <td>{{ job.filename }}</td>
+            <td>{{ job.input_bytes }} / {{ job.output_bytes }} bytes</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No obfuscations yet.</p>
+    {% endif %}
+  </article>
+</section>
+{% endblock %}

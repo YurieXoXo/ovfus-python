@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="dashboard-head">
+  <h1>Buy Credits</h1>
+  <p>1 credit = 1 obfuscation request.</p>
+</section>
+
+<section class="grid cards-3">
+  {% for package in packages %}
+  <article class="card package">
+    <h2>{{ package.label }}</h2>
+    <p class="price">{{ package.price }}</p>
+    <p>{{ package.credits }} credits</p>
+
+    {% if package.checkout_enabled %}
+      <form method="post" action="{{ url_for('create_checkout', package_key=package.key) }}">
+        <button type="submit">Checkout</button>
+      </form>
+    {% else %}
+      <button type="button" disabled>Stripe not configured</button>
+    {% endif %}
+
+    {% if dev_topup_enabled %}
+      <form method="post" action="{{ url_for('dev_topup', package_key=package.key) }}">
+        <button class="btn-ghost" type="submit">Add Test Credits</button>
+      </form>
+    {% endif %}
+  </article>
+  {% endfor %}
+</section>
+{% endblock %}

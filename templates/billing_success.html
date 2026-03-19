@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card small">
+  <h1>Payment successful</h1>
+  {% if just_credited %}
+    <p>Your credits were added to your account.</p>
+  {% else %}
+    <p>
+      Payment was received. If credits are not visible yet, refresh the dashboard in a few seconds
+      (webhook delivery can be slightly delayed).
+    </p>
+  {% endif %}
+  <a class="btn" href="{{ url_for('dashboard') }}">Go to Dashboard</a>
+</section>
+{% endblock %}

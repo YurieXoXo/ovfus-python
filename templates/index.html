@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <h1>Protect your Python scripts with token-based obfuscation</h1>
+  <p>
+    Create an account, buy credits, and obfuscate scripts. Each obfuscation costs exactly 1 credit.
+  </p>
+  <div class="cta-row">
+    <a class="btn" href="{{ url_for('register') }}">Create Account</a>
+    <a class="btn btn-ghost" href="{{ url_for('login') }}">Login</a>
+  </div>
+</section>
+{% endblock %}
