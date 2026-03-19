@@ -5,6 +5,14 @@
   <p>1 credit = 1 obfuscation request.</p>
 </section>
 
+{% if auto_approve_purchases %}
+<section class="card">
+  <p class="muted">
+    Instant mode is active: clicking buy immediately adds credits (no real payment yet).
+  </p>
+</section>
+{% endif %}
+
 <section class="grid cards-3">
   {% for package in packages %}
   <article class="card package">
@@ -12,13 +20,11 @@
     <p class="price">{{ package.price }}</p>
     <p>{{ package.credits }} credits</p>
 
-    {% if package.checkout_enabled %}
-      <form method="post" action="{{ url_for('create_checkout', package_key=package.key) }}">
-        <button type="submit">Checkout</button>
-      </form>
-    {% else %}
-      <button type="button" disabled>Stripe not configured</button>
-    {% endif %}
+    <form method="post" action="{{ url_for('create_checkout', package_key=package.key) }}">
+      <button type="submit">
+        {% if package.uses_stripe %}Checkout{% else %}Instant Buy{% endif %}
+      </button>
+    </form>
 
     {% if dev_topup_enabled %}
       <form method="post" action="{{ url_for('dev_topup', package_key=package.key) }}">

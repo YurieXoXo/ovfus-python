@@ -2,6 +2,7 @@ import io
 import os
 from datetime import datetime
 from urllib.parse import urlparse
+from uuid import uuid4
 
 import stripe
 from dotenv import load_dotenv
@@ -48,6 +49,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["MAX_SOURCE_SIZE_BYTES"] = int(os.getenv("MAX_SOURCE_SIZE_BYTES", "200000"))
 app.config["ENABLE_DEV_TOPUP"] = os.getenv("ENABLE_DEV_TOPUP", "0") == "1"
 app.config["BASE_URL"] = os.getenv("BASE_URL", "http://127.0.0.1:5000").rstrip("/")
+app.config["AUTO_APPROVE_PURCHASES"] = os.getenv("AUTO_APPROVE_PURCHASES", "1") == "1"
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
@@ -383,13 +385,14 @@ def buy_credits():
                 "label": pack["label"],
                 "credits": pack["credits"],
                 "price": money(pack["price_cents"]),
-                "checkout_enabled": package_checkout_enabled(pack),
+                "uses_stripe": package_checkout_enabled(pack),
             }
         )
     return render_template(
         "buy.html",
         packages=packages,
         dev_topup_enabled=app.config["ENABLE_DEV_TOPUP"],
+        auto_approve_purchases=app.config["AUTO_APPROVE_PURCHASES"],
     )
 
 
@@ -400,7 +403,23 @@ def create_checkout(package_key: str):
     if package is None:
         abort(404)
     if not package_checkout_enabled(package):
-        flash("Stripe is not configured for this package yet.", "error")
+        if not app.config["AUTO_APPROVE_PURCHASES"]:
+            flash("Stripe is not configured yet.", "error")
+            return redirect(url_for("buy_credits"))
+
+        credited = grant_purchase_credits(
+            user_id=current_user.id,
+            credits=package["credits"],
+            stripe_session_id=f"auto_{uuid4().hex}",
+            amount_cents=package["price_cents"],
+        )
+        if credited:
+            flash(
+                f"Added {package['credits']} credits instantly (Stripe disabled mode).",
+                "success",
+            )
+            return redirect(url_for("dashboard"))
+        flash("Could not add credits right now. Try again.", "error")
         return redirect(url_for("buy_credits"))
 
     try:

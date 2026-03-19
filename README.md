@@ -2,7 +2,7 @@
 
 Token-based Python obfuscation service:
 - User signup/login
-- Credit purchase flow (Stripe)
+- Credit purchase flow (instant mode now, Stripe optional later)
 - `1 credit` consumed per obfuscation
 - Download obfuscated `.py` file
 
@@ -24,7 +24,15 @@ python app.py
 ```
 4. Open: `http://127.0.0.1:5000`
 
-## Stripe setup
+## No-Stripe mode (current)
+
+If Stripe keys are missing, clicking Buy uses instant mode and immediately adds credits.
+This is controlled by:
+- `AUTO_APPROVE_PURCHASES=1`
+
+Set it to `0` when you want to enforce real Stripe checkout only.
+
+## Stripe setup (later)
 
 1. Create products/prices in Stripe Dashboard:
 - Starter: 10 credits
@@ -58,5 +66,5 @@ This repo includes `render.yaml`, so you can deploy as a Blueprint.
 ## Notes
 
 - Obfuscation raises reverse-engineering effort, but it is not perfect protection.
-- If Stripe is not set, buying credits is disabled by default.
+- If Stripe is not set and `AUTO_APPROVE_PURCHASES=1`, buying credits is instant (no payment).
 - For local testing only, set `ENABLE_DEV_TOPUP=1` and use test-credit buttons on `/buy`.
